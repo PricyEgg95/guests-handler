@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, X, Users, UserCheck, UserX, Clock, User, Settings, LogOut } from 'lucide-react';
+import { Menu, X, Users, UserCheck, UserX, Clock, User, Settings, LogOut, Copy, RefreshCw, Check } from 'lucide-react';
 import { useAuth, UserProfile } from '../hooks/useAuth';
 
 interface BurgerMenuProps {
@@ -16,8 +16,9 @@ interface BurgerMenuProps {
 
 export function BurgerMenu({ stats, onFilterChange, currentFilter, userProfile }: BurgerMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { user, signOut, isSuperUser } = useAuth();
+  const { user, signOut, isSuperUser, regenerateEventCode } = useAuth();
 
   // Fermer le menu en cliquant à l'extérieur
   useEffect(() => {
@@ -83,6 +84,20 @@ export function BurgerMenu({ stats, onFilterChange, currentFilter, userProfile }
   const handleSignOut = async () => {
     await signOut();
     setIsOpen(false);
+  };
+
+  const handleCopyCode = () => {
+    if (userProfile?.event_code) {
+      navigator.clipboard.writeText(userProfile.event_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleRegenerateCode = async () => {
+    if (window.confirm('Voulez-vous vraiment générer un nouveau code ? L\'ancien code ne fonctionnera plus.')) {
+      await regenerateEventCode();
+    }
   };
   return (
     <div className="relative" ref={menuRef}>
@@ -155,6 +170,50 @@ export function BurgerMenu({ stats, onFilterChange, currentFilter, userProfile }
                 })}
               </div>
             </div>
+
+            {/* Section Évènement (pour super-utilisateurs) */}
+            {isSuperUser && (
+              <div className="border-t border-gray-200 p-4 bg-gray-50">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Code d'accès invité
+                </h3>
+                {userProfile?.event_code ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-white border border-gray-300 rounded-lg px-3 py-2 text-center font-mono text-xl font-bold tracking-widest text-blue-600">
+                        {userProfile.event_code}
+                      </div>
+                      <button
+                        onClick={handleCopyCode}
+                        className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+                        title="Copier le code"
+                      >
+                        {copied ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                      </button>
+                      <button
+                        onClick={handleRegenerateCode}
+                        className="p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
+                        title="Générer un nouveau code"
+                      >
+                        <RefreshCw className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Partagez ce code avec vos invités pour qu'ils accèdent à l'évènement.
+                    </p>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => regenerateEventCode()}
+                    className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Générer un code
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Section Profil (pour futures fonctionnalités) */}
             <div className="border-t border-gray-200 p-4">

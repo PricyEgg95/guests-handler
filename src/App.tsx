@@ -13,7 +13,7 @@ import { TableManagement } from './components/TableManagement';
 import { Guest, GuestFormData } from './types/guest';
 
 function App() {
-  const { user, loading: authLoading, isSuperUser } = useAuth();
+  const { user, userProfile, loading: authLoading, isSuperUser, isGuest, joinEventByCode } = useAuth();
   const { guests, loading: guestsLoading, addGuest, updateGuest, deleteGuest, getStats } = useGuests();
   const [activeTab, setActiveTab] = useState<'guests' | 'tables'>('guests');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -111,7 +111,43 @@ function App() {
         onTabChange={setActiveTab}
       />
       <div className="container mx-auto px-4 py-8">
-        {activeTab === 'guests' ? (
+        {isGuest && !userProfile?.linked_event_id ? (
+          <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="w-24 h-24 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-12 h-12 text-purple-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              Accès restreint
+            </h3>
+            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              Vous devez saisir un code d'évènement pour consulter les invités et le plan des tables.
+            </p>
+            <form
+              className="max-w-xs mx-auto flex gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const code = (e.target as any).code.value.toUpperCase();
+                const { error } = await joinEventByCode(code);
+                if (error) alert(error.message);
+              }}
+            >
+              <input
+                name="code"
+                type="text"
+                placeholder="Code (ex: ABC123)"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                maxLength={6}
+                required
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Valider
+              </button>
+            </form>
+          </div>
+        ) : activeTab === 'guests' ? (
           <>
             {/* Stats */}
             <StatsCards 
