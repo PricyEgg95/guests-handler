@@ -164,11 +164,10 @@ export function useTables() {
     if (!user?.id) return [];
 
     try {
-      // Récupérer toutes les tables
+      // Récupérer toutes les tables (RLS filtrera selon le rôle et l'évènement lié)
       const { data: tablesData, error: tablesError } = await supabase
         .from('tables')
-        .select('*')
-        .eq('user_id', user.id);
+        .select('*');
 
       if (tablesError) {
         console.error('Erreur lors du chargement des tables:', tablesError);
@@ -179,7 +178,6 @@ export function useTables() {
       const { data: guestsData, error: guestsError } = await supabase
         .from('guests')
         .select('id, first_name, last_name, table_number')
-        .eq('user_id', user.id)
         .not('table_number', 'is', null);
 
       if (guestsError) {

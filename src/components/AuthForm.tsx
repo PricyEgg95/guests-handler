@@ -3,13 +3,40 @@ import { LogIn, UserPlus, Mail, Lock, PartyPopper, Crown, Users } from 'lucide-r
 import { useAuth } from '../hooks/useAuth';
 
 export function AuthForm() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'code'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [eventCode, setEventCode] = useState('');
   const [selectedRole, setSelectedRole] = useState<'super-user' | 'guest'>('guest');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { signIn, signUp, updateUserRole } = useAuth();
+  const { signIn, signUp, signInAnonymously, joinEventByCode, updateUserRole } = useAuth();
+
+  const handleCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 1. Sign in anonymously if not logged in
+      const { data: authData, error: authError } = await signInAnonymously();
+      if (authError) {
+        setError(authError.message);
+        return;
+      }
+
+      // 2. Join event by code
+      const { error: joinError } = await joinEventByCode(eventCode);
+      if (joinError) {
+        setError(joinError.message);
+        return;
+      }
+    } catch (err) {
+      setError('Une erreur inattendue s\'est produite');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,10 +82,56 @@ export function AuthForm() {
             </h1>
           </div>
           <p className="text-gray-600">
-            {isSignUp ? 'Créez votre compte pour commencer' : 'Connectez-vous à votre compte'}
+            {authMode === 'signup'
+              ? 'Créez votre compte pour commencer'
+              : authMode === 'signin'
+              ? 'Connectez-vous à votre compte'
+              : 'Accédez à l\'évènement avec votre code'}
           </p>
         </div>
 
+        {authMode === 'code' ? (
+          <form onSubmit={handleCodeSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Code de l'évènement (6 caractères)
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  value={eventCode}
+                  onChange={(e) => setEventCode(e.target.value.toUpperCase())}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-center text-2xl font-bold tracking-widest"
+                  placeholder="ABC123"
+                  required
+                  maxLength={6}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || eventCode.length !== 6}
+              className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  Accéder à l'évènement
+                </>
+              )}
+            </button>
+          </form>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -95,7 +168,7 @@ export function AuthForm() {
             </div>
           </div>
 
-          {isSignUp && (
+          {authMode === 'signup' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Type de compte
@@ -159,21 +232,34 @@ export function AuthForm() {
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                {isSignUp ? <UserPlus className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
-                {isSignUp ? 'Créer un compte' : 'Se connecter'}
+                {authMode === 'signup' ? <UserPlus className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
+                {authMode === 'signup' ? 'Créer un compte' : 'Se connecter'}
               </>
             )}
           </button>
         </form>
+        )}
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 flex flex-col gap-3 text-center">
+          {authMode !== 'code' && (
+            <button
+              onClick={() => setAuthMode(authMode === 'signup' ? 'signin' : 'signup')}
+              className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+            >
+              {authMode === 'signup'
+                ? 'Déjà un compte ? Se connecter'
+                : 'Pas de compte ? Créer un compte'
+              }
+            </button>
+          )}
+
           <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-blue-600 hover:text-blue-700 font-medium"
+            onClick={() => setAuthMode(authMode === 'code' ? 'signin' : 'code')}
+            className="text-purple-600 hover:text-purple-700 font-medium text-sm border-t border-gray-100 pt-3"
           >
-            {isSignUp 
-              ? 'Déjà un compte ? Se connecter' 
-              : 'Pas de compte ? Créer un compte'
+            {authMode === 'code'
+              ? 'Retour à la connexion'
+              : 'Accéder avec un code d\'évènement'
             }
           </button>
         </div>

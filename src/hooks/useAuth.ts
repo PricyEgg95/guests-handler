@@ -6,6 +6,8 @@ export interface UserProfile {
   id: string;
   email: string;
   role: 'super-user' | 'guest';
+  event_code?: string;
+  linked_event_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +104,11 @@ export function useAuth() {
     return { data, error };
   };
 
+  const signInAnonymously = async () => {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    return { data, error };
+  };
+
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -131,6 +138,14 @@ export function useAuth() {
         return { error };
       }
 
+      // If newly promoted to super-user and missing a code, generate one
+      if (role === 'super-user' && !data.event_code) {
+        const { data: newCode, error: codeError } = await supabase.rpc('regenerate_my_event_code');
+        if (!codeError) {
+          data.event_code = newCode;
+        }
+      }
+
       setUserProfile(data);
       return { data, error: null };
     } catch (error) {
@@ -138,8 +153,44 @@ export function useAuth() {
     }
   };
 
+  const regenerateEventCode = async () => {
+    if (!user || userProfile?.role !== 'super-user') {
+      return { error: new Error('Only super-users can regenerate event codes') };
+    }
+
+    try {
+      const { data: newCode, error } = await supabase.rpc('regenerate_my_event_code');
+      if (error) return { error };
+
+      // Update local profile
+      if (userProfile) {
+        setUserProfile({ ...userProfile, event_code: newCode });
+      }
+      return { data: newCode, error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
+  const joinEventByCode = async (code: string) => {
+    if (!user) return { error: new Error('No user logged in') };
+
+    try {
+      const { data: success, error } = await supabase.rpc('join_event_by_code', { code });
+      if (error) return { error };
+      if (!success) return { error: new Error('Code d\'évènement invalide') };
+
+      // Refresh profile
+      const profile = await fetchUserProfile(user.id);
+      setUserProfile(profile);
+      return { data: success, error: null };
+    } catch (error) {
+      return { error: error as Error };
+    }
+  };
+
   const isSuperUser = userProfile?.role === 'super-user';
-  const isGuest = userProfile?.role === 'guest';
+  const isGuest = userProfile?.role === 'guest' || (!!user && !userProfile && !loading);
 
   return {
     user,
@@ -150,7 +201,10 @@ export function useAuth() {
     isGuest,
     signUp,
     signIn,
+    signInAnonymously,
     signOut,
     updateUserRole,
+    regenerateEventCode,
+    joinEventByCode,
   };
 }
